@@ -86,25 +86,31 @@ main:
         inc si
 
         .set_sis496_reg_nr:
+        push dx
         mov eax, config_addr
         mov al, dl
+        and al, 1111_1100b
         mov dx, addr_port
         out dx, eax
+        pop dx
 
         call get_reg_value
         mov ebx, eax
 
         ;.show_msg_reg_nr:
+        push dx
         mov dx, msg_reg_nr
         mov ah, 09h
         int 21h
+        pop dx
 
         call show_reg_value
         call skip_spaces
         jz .success_exit        ; when not writing any bits, exit here
 
+        push dx
         .next_bit_set:
-        push cx                 ;
+        push cx                 ; save register size in bytes
         cmp al, "="             ; don't allow skipping the bit index
         je .invalid_args
         xor ch, ch              ; use ch for the bit index
@@ -178,6 +184,7 @@ main:
 
         mov [msg_reg_val], dword "Set "
         call show_reg_value
+        pop dx
         mov eax, ebx
         call set_reg_value
         call get_reg_value
@@ -214,41 +221,54 @@ skip_spaces:
         ret
 
 ; get_reg_value
-; returns the value of the current SiS496 register in eax
+; Returns the value of a SiS496 register in eax/ax/al.
+; Note: addr_port must be configured porior to calling this.
 ; args:
 ; cl - The size of the register in bytes.
+; dx - The register number.
 get_reg_value:
-        mov dx, data_port
+        push dx
+        and dl, 0000_0011b
+        or dx, data_port
         cmp cl, 2
         jb .size_byte
         je .size_word
         .size_dword:
         in eax, dx
-        ret
+        jmp .done
         .size_word:
         in ax, dx
-        ret
+        jmp .done
         .size_byte:
         in al, dx
+        .done:
+        pop dx
         ret
 
 ; set_reg_value
-; sets the value of the current SiS496 register to eax
+; Sets the value of a SiS496 register to eax.
+; Note: addr_port must be configured porior to calling this.
 ; args:
+; eax/ax/al - The value to set on the register.
 ; cl - The size of the register in bytes.
+; dx - The register number.
 set_reg_value:
-        mov dx, data_port
+        push dx
+        and dl, 0000_0011b
+        or dx, data_port
         cmp cl, 2
         jb .size_byte
         je .size_word
         .size_dword:
         out dx, eax
-        ret
+        jmp .done
         .size_word:
         out dx, ax
-        ret
+        jmp .done
         .size_byte:
         out dx, al
+        .done:
+        pop dx
         ret
 
 ; show_reg_value
@@ -258,6 +278,7 @@ set_reg_value:
 ; ebx - The value to be shown as hex and bin digits
 ; cx - The number of bytes to process (4=ebx,2=bx,1=bl)
 show_reg_value:
+        push dx
         mov di, buffer
         call stos_hex_digits
         mov al, "h"
@@ -272,6 +293,7 @@ show_reg_value:
         mov dx, msg_reg_val
         mov ah, 09h
         int 21h
+        pop dx
         ret
 
 ; stos_hex_digits
