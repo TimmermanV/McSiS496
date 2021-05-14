@@ -7,7 +7,7 @@ Usage:
 mcsis496.com register [bit changes]
 
 register: (b40, w02h, DC8H) (b|w|d)[0-9A-F]{2}h?
-  size (b for byte/8-bit, w for word/16-bit, d for double word 32-bit)
+  size (b for byte/8-bit, w for word/16-bit, d for double word/32-bit)
   followed by 2 hexadecimal digits for the register number
   followed by an optional h
   
