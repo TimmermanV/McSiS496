@@ -1,5 +1,5 @@
 # McSiS496
-McSiS496 is a simple command line tool for DOS that allows manual configuration of bits in SiS496 registers.
+McSiS496 is a simple command line tool for DOS that allows manual configuration of bits in configuration registers in the PCI configuration of the SiS496.
 I will show the current contents of the requested register and will attempt to modify any requested bits.
 
 Usage:
