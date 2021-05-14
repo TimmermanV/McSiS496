@@ -11,11 +11,13 @@ register: (b40, w02h, DC8H) (b|w|d)[0-9A-F]{2}h?
   followed by 2 hexadecimal digits for the register number
   followed by an optional h
   
-[bit changes]: (2=010, 25=0, 0=00000101) [0-9]+=[01]+)
+[bit changes]: (2=010, 25=0, 0=00000101) (\s+[0-9]+=[01]+)*
   bit index for the least significant bit (decimal)
   followed by equal sign
   followed by a sequence of binary digits
 ```
+
+If you don't specify any bit changes, the program will just show the current value of the register. If you do specify any bit changes, the program will read and display the current value, apply your requested changes, show the result and write the new value to the register. Finally it will read and display the (new) value of the register.
 
 Example output:
 ```
