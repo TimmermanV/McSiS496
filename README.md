@@ -4,17 +4,16 @@ I will show the current contents of the requested register and will attempt to m
 
 Usage:
 ```
-mcsis496.com register [bit changes]
+mcsis496 register [bit_changes...] [register [bit_changes...]]...
+register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']
+bit_changes = index of lowest bit (decimal) + '=' + binary digits [+ 'b']
+```
 
-register: (b40, w02h, DC8H) (b|w|d)[0-9A-F]{2}h?
-  size (b for byte/8-bit, w for word/16-bit, d for double word/32-bit)
-  followed by 2 hexadecimal digits for the register number
-  followed by an optional h
-  
-[bit changes]: (2=010, 25=0, 0=00000101) (\s+[0-9]+=[01]+)*
-  bit index for the least significant bit (decimal)
-  followed by equal sign
-  followed by a sequence of binary digits
+Examples:
+```
+mcsis496 d00h
+mcsis496 b40h 0=10b
+mcsis496 b40h 2=010b b81h 2=010b
 ```
 
 If you don't specify any bit changes, the program will just show the current value of the register. If you do specify any bit changes, the program will read and display the current value, apply your requested changes, show the result and write the new value to the register. Finally it will read and display the (new) value of the register.
@@ -22,9 +21,10 @@ If you don't specify any bit changes, the program will just show the current val
 Example output:
 ```
 C:\>mcsis496 dc8 12=1010 8=1110
-Manual configuration tool for SiS 496/497 v1.0
+Manual configuration tool for SiS 496/497 v1.01
+
 Register C8h
 Cur value: 00FF0000h  0000_0000 1111_1111 0000_0000 0000_0000
-Set value: 00FAE000h  0000_0000 1111_1010 1110_0000 0000_0000
-New value: 00FAE000h  0000_0000 1111_1010 1110_0000 0000_0000
+Set value: 00FFAE00h  0000_0000 1111_1111 1010_1110 0000_0000
+New value: 00FFAE00h  0000_0000 1111_1111 1010_1110 0000_0000
 ```
