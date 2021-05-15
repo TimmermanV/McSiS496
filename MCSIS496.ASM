@@ -80,7 +80,7 @@ main:
 
         ;.skip_optional_h:
         mov al, [si]            ; peek for value "H"
-        and al, 1101_1111b
+        and al, 1101_1111b      ; force uppercase
         cmp al, "H"
         jne .set_sis496_reg_nr
         inc si
@@ -150,13 +150,22 @@ main:
         xor edi, edi            ; use edi for the bit mask
         xor edx, edx            ; use edx for the bit pattern
         .next_bin_digit:
-        lodsb
+        mov al, [si]            ; peek for whitespace keeping si
         cmp al, 20h
         jbe .apply_bit_set
+        inc si
         cmp al, "0"
-        jb .invalid_args
+        jz .process_bin_digit
         cmp al, "1"
-        ja .invalid_args
+        jz .process_bin_digit
+        and al, 1101_1111b      ; force uppercase
+        cmp al, "B"             ; check for optional 'b'
+        jne .invalid_args
+        or ah, ah               ; require at least 1 bin digit
+        jz .invalid_args
+        jmp .apply_bit_set
+
+        .process_bin_digit:
         sub al, "0"
         shl edi, 1
         inc edi
@@ -175,7 +184,6 @@ main:
         and ebx, edi
         or ebx, edx
 
-        dec si
         call skip_spaces
         jz .set_new_reg_value
         cmp al, "9"
@@ -385,11 +393,11 @@ msg_inval_args: db `\r\n`, "Invalid arguments!", `\r\n` ; No $
 msg_help:       db `\r\n`, "Usage:", `\r\n`
                 db "mcsis496 register [bit_changes...] [register [bit_changes...]]...", `\r\n`
                 db "register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']", `\r\n`
-                db "bit_changes = index of lowest bit (decimal) + '=' + binary digits", `\r\n\r\n`
+                db "bit_changes = index of lowest bit (decimal) + '=' + binary digits [+ 'b']", `\r\n\r\n`
                 db "Examples:", `\r\n`
                 db "mcsis496 d00h", `\r\n`
-                db "mcsis496 b40h 0=10 5=1 6=1", `\r\n`
-                db "mcsis496 b40h 2=010 b81h 2=010", `\r\n`, "$"
+                db "mcsis496 b40h 0=10b 5=1b 6=1b", `\r\n`
+                db "mcsis496 b40h 2=010b b81h 2=010b", `\r\n`, "$"
 msg_reg_nr:     db `\r\n`, "Register " ; No $
 reg_nr_digits:  db "FFh", `\r\n`, "$"
 msg_reg_val:    db "Cur value: " ; No $
