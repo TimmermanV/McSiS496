@@ -16,18 +16,18 @@ main:
         mov eax, config_addr    ; detect SiS496
         mov dx, addr_port
         out dx, eax
-        mov cx, 4               ; read dword
-        call get_reg_value
+        mov dx, data_port
+        in eax, dx
         cmp eax, sis496_id
         je .process_args
 
-        mov dx, msg_no_sis496
+        mov dx, msg_no_sis496   ; show that SiS496 was not detected
         mov ah, 09h
         int 21h
         ; continue anyway
 
         .process_args:
-        mov si, 81h             ; get aruments from Program Segment Prefix
+        mov si, 81h             ; get arguments from Program Segment Prefix
 
         call skip_spaces
         jnz .get_reg_size
@@ -105,14 +105,16 @@ main:
         pop dx
 
         call show_reg_value
-        call skip_spaces
-        jz .success_exit        ; when not writing any bits, exit here
+        call skip_spaces        
+        jz .success_exit        ; end of arguments: jump to exit
+        cmp al, "0"
+        jb .invalid_args        ; < "0" is invalid at this point
+        cmp al, "9"
+        ja .get_reg_size        ; > "9" could mean another register
 
         push dx
         .next_bit_set:
         push cx                 ; save register size in bytes
-        cmp al, "="             ; don't allow skipping the bit index
-        je .invalid_args
         xor ch, ch              ; use ch for the bit index
         jmp .process_dec_digit  ; first digit is already loaded by skip_spaces
         .load_dec_digit:
@@ -130,12 +132,12 @@ main:
         shl dl, 1
         add ch, dl
         add ch, al              ; ch = bit index
-        cmp ch, 31              ; max index in any case is 32
+        cmp ch, 31              ; max index in any case is 31
         ja .invalid_args
         jmp .load_dec_digit
 
         .check_bit_index:       ; check if index is out of range
-        shl cl, 3               ; bytes to bits
+        shl cl, 3               ; register size from bytes to bits
         cmp ch, cl
         jae .invalid_args       ; bit index >= nr bits
 
@@ -176,15 +178,20 @@ main:
         dec si
         call skip_spaces
         jz .set_new_reg_value
-        pop cx
+        cmp al, "9"
+        ja .set_new_reg_value   ; > "9" could mean another register
+        pop cx                  ; restore register size in bytes
         jmp .next_bit_set
 
         .set_new_reg_value:
-        pop cx
+        pop cx                  ; restore register size in bytes
+        pop dx                  ; restore register number
+        push ax                 ; remember the last read char
+        pushf                   ; remember why we stopped reading bit sets
 
         mov [msg_reg_val], dword "Set "
         call show_reg_value
-        pop dx
+
         mov eax, ebx
         call set_reg_value
         call get_reg_value
@@ -192,6 +199,12 @@ main:
 
         mov [msg_reg_val], dword "New "
         call show_reg_value
+
+        popf                    ; restore why we stopped reading bit sets
+        jz .success_exit        ; if it was the end of args, exit here
+        mov [msg_reg_val], dword "Cur "
+        pop ax                  ; restore the last read char
+        jmp .get_reg_size       ; try reading another register size+number
 
         .success_exit:
         mov al, 0               ; zero return code for success
@@ -366,11 +379,18 @@ stos_bin_digits:
         pop ebx        
         ret
 
-msg_title:      db "Manual configuration tool for SiS 496/497 v1.0", 13, 10, "$"
-msg_no_sis496:  db "Failed to detect SiS 496/497!", 13, 10, "$"
-msg_inval_args: db "Invalid arguments!", 13, 10 ; No $
-msg_help:       db "Usage: mcsis496 b40h 0=10", 13, 10, "$"
-msg_reg_nr:     db "Register " ; No $
-reg_nr_digits:  db "FFh", 13, 10, "$"
+msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", `\r\n`, "$"
+msg_no_sis496:  db "Failed to detect SiS 496/497!", `\r\n`, "$"
+msg_inval_args: db `\r\n`, "Invalid arguments!", `\r\n` ; No $
+msg_help:       db `\r\n`, "Usage:", `\r\n`
+                db "mcsis496 register [bit_changes...] [register [bit_changes...]]...", `\r\n`
+                db "register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']", `\r\n`
+                db "bit_changes = index of lowest bit (decimal) + '=' + binary digits", `\r\n\r\n`
+                db "Examples:", `\r\n`
+                db "mcsis496 d00h", `\r\n`
+                db "mcsis496 b40h 0=10 5=1 6=1", `\r\n`
+                db "mcsis496 b40h 2=010 b81h 2=010", `\r\n`, "$"
+msg_reg_nr:     db `\r\n`, "Register " ; No $
+reg_nr_digits:  db "FFh", `\r\n`, "$"
 msg_reg_val:    db "Cur value: " ; No $
 buffer:
