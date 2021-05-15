@@ -6,14 +6,14 @@ Usage:
 ```
 mcsis496 register [bit_changes...] [register [bit_changes...]]...
 register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']
-bit_changes = index of lowest bit (decimal) + '=' + binary digits [+ 'b']
+bit_changes = index of lowest bit (decimal) + '=' + binary digits
 ```
 
 Examples:
 ```
 mcsis496 d00h
-mcsis496 b40h 0=10b
-mcsis496 b40h 2=010b b81h 2=010b
+mcsis496 b40h 0=10
+mcsis496 b40h 2=010 b81h 2=010
 ```
 
 If you don't specify any bit changes, the program will just show the current value of the register. If you do specify any bit changes, the program will read and display the current value, apply your requested changes, show the result and write the new value to the register. Finally it will read and display the (new) value of the register.
