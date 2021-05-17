@@ -7,6 +7,7 @@ data_port equ 0cfch
 sis496_id equ 04961039h
 
 org 100h
+cpu 486
 
 main:
         mov dx, msg_title
@@ -29,8 +30,34 @@ main:
         .process_args:
         mov si, 81h             ; get arguments from Program Segment Prefix
 
+        .process_options:
         call skip_spaces
-        jnz .get_reg_size
+        jz .help_and_exit
+        cmp al, "-"
+        jne .get_reg_size
+        lodsb
+        and al, 1101_1111b      ; force uppercase
+        ;.test_option_h:
+        cmp al, "H"
+        jne .test_option_b
+        mov byte [opt_show_bin], 0
+        jmp .space_after_option
+        .test_option_b:
+        cmp al, "B"
+        jne .test_option_c
+        mov byte [opt_show_hex], 0
+        jmp .space_after_option
+        .test_option_c:
+        cmp al, "C"
+        jne .invalid_args
+        mov byte [opt_compact], 1
+        .space_after_option:
+        mov al, [si]            ; peek for space
+        cmp al, 20h
+        jbe .process_options    ; try reading another option
+        jmp .invalid_args
+
+        .help_and_exit:
         mov dx, msg_help
         mov al, 0               ; zero return code for success
         jmp .print_and_exit
@@ -99,12 +126,19 @@ main:
 
         ;.show_msg_reg_nr:
         push dx
-        mov dx, msg_reg_nr
+        mov ax, cpt_msg_reg_nr - msg_reg_nr
+        mul byte [opt_compact]
+        add ax, msg_reg_nr
+        mov dx, ax
         mov ah, 09h
         int 21h
         pop dx
 
+        test byte [opt_compact], 1
+        jnz .process_bit_sets
         call show_reg_value
+
+        .process_bit_sets:
         call skip_spaces        
         jz .success_exit        ; end of arguments: jump to exit
         cmp al, "0"
@@ -189,20 +223,23 @@ main:
         push ax                 ; remember the last read char
         pushf                   ; remember why we stopped reading bit sets
 
-        mov [msg_reg_val], dword "Set "
+        test byte [opt_compact], 1
+        jnz .set_reg_value
+        mov [reg_val_type], dword "Set "
         call show_reg_value
 
+        .set_reg_value:
         mov eax, ebx
         call set_reg_value
         call get_reg_value
         mov ebx, eax
 
-        mov [msg_reg_val], dword "New "
+        mov [reg_val_type], dword "New "
         call show_reg_value
 
         popf                    ; restore why we stopped reading bit sets
         jz .success_exit        ; if it was the end of args, exit here
-        mov [msg_reg_val], dword "Cur "
+        mov [reg_val_type], dword "Cur "
         pop ax                  ; restore the last read char
         jmp .get_reg_size       ; try reading another register size+number
 
@@ -218,6 +255,9 @@ main:
         mov ah, 09h
         int 21h
         .exit:
+        mov dx, end_of_line     ; make sure the last line has an end
+        mov ah, 09h
+        int 21h        
         mov ah, 4ch
         int 21h
 
@@ -293,17 +333,29 @@ set_reg_value:
 show_reg_value:
         push dx
         mov di, buffer
+
+        test byte [opt_show_hex], 1
+        jz .stos_bin
+
+        ;.stos_hex:
         call stos_hex_digits
         mov al, "h"
         stosb
         mov ax, "  "
         stosw
+
+        .stos_bin:
+        test byte [opt_show_bin], 1
+        jz .print_msg
         call stos_bin_digits
-        mov ax, `\r\n`
-        stosw
+        
+        .print_msg:
         mov al, "$"
         stosb
-        mov dx, msg_reg_val
+        mov ax, cpt_msg_reg_val - msg_reg_val
+        mul byte [opt_compact]
+        add ax, msg_reg_val
+        mov dx, ax
         mov ah, 09h
         int 21h
         pop dx
@@ -379,18 +431,28 @@ stos_bin_digits:
         pop ebx        
         ret
 
-msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", `\r\n`, "$"
-msg_no_sis496:  db "Failed to detect SiS 496/497!", `\r\n`, "$"
-msg_inval_args: db `\r\n`, "Invalid arguments!", `\r\n` ; No $
-msg_help:       db `\r\n`, "Usage:", `\r\n`
+; options
+opt_show_hex:   db 1
+opt_show_bin:   db 1
+opt_compact:    db 0
+
+; messages
+msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", "$"
+msg_no_sis496:  db `\r\n`, "Failed to detect SiS 496/497!", "$"
+msg_inval_args: db `\r\n`, "Invalid arguments!" ; continued below
+msg_help:       db `\r\n\r\n`, "Usage:", `\r\n`
                 db "mcsis496 register [bit_changes...] [register [bit_changes...]]...", `\r\n`
                 db "register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']", `\r\n`
                 db "bit_changes = index of lowest bit (decimal) + '=' + binary digits", `\r\n\r\n`
                 db "Examples:", `\r\n`
                 db "mcsis496 d00h", `\r\n`
                 db "mcsis496 b40h 0=10 5=1 6=1", `\r\n`
-                db "mcsis496 b40h 2=010 b81h 2=010", `\r\n`, "$"
-msg_reg_nr:     db `\r\n`, "Register " ; No $
-reg_nr_digits:  db "FFh", `\r\n`, "$"
-msg_reg_val:    db "Cur value: " ; No $
+                db "mcsis496 b40h 2=010 b81h 2=010", "$"
+end_of_line:    db `\r\n`, "$"
+msg_reg_nr:     db `\r\n`               ; continued below
+cpt_msg_reg_nr: db `\r\n`, "Register "  ; continued below
+reg_nr_digits:  db "FFh", "$"
+msg_reg_val:    db `\r\n`               ; continued below
+reg_val_type:   db "Cur value"          ; continued below
+cpt_msg_reg_val:db ": "                 ; continued below
 buffer:
