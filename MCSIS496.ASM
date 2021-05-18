@@ -35,23 +35,18 @@ main:
         jz .help_and_exit
         cmp al, "-"
         jne .get_reg_size
+
         lodsb
         and al, 1101_1111b      ; force uppercase
-        ;.test_option_h:
-        cmp al, "H"
-        jne .test_option_b
-        mov byte [opt_show_bin], 0
-        jmp .space_after_option
-        .test_option_b:
-        cmp al, "B"
-        jne .test_option_c
-        mov byte [opt_show_hex], 0
-        jmp .space_after_option
-        .test_option_c:
-        cmp al, "C"
-        jne .invalid_args
-        mov byte [opt_compact], 1
-        .space_after_option:
+        mov bx, num_options*2
+        .find_option:
+        cmp al, [options+bx-2]
+        je .set_option
+        sub bx, 2
+        jnz .find_option
+        jmp .invalid_args
+        .set_option:
+        mov byte [options+bx-1], 1
         mov al, [si]            ; peek for space
         cmp al, 20h
         jbe .process_options    ; try reading another option
@@ -184,7 +179,7 @@ main:
         xor edi, edi            ; use edi for the bit mask
         xor edx, edx            ; use edx for the bit pattern
         .next_bin_digit:
-        lodsb
+        mov al, [si]
         cmp al, 20h
         jbe .apply_bit_set
         cmp al, "0"
@@ -199,6 +194,7 @@ main:
         inc ah
         cmp ah, cl
         ja .invalid_args        ; too many digits
+        inc si
         jmp .next_bin_digit
 
         .apply_bit_set:
@@ -209,7 +205,6 @@ main:
         and ebx, edi
         or ebx, edx
 
-        dec si
         call skip_spaces
         jz .set_new_reg_value
         cmp al, "9"
@@ -334,19 +329,19 @@ show_reg_value:
         push dx
         mov di, buffer
 
-        test byte [opt_show_hex], 1
-        jz .stos_bin
+        test byte [opt_bin_only], 1
+        jnz .stos_bin
 
         ;.stos_hex:
         call stos_hex_digits
         mov al, "h"
         stosb
+        test byte [opt_hex_only], 1
+        jnz .print_msg
         mov ax, "  "
         stosw
 
         .stos_bin:
-        test byte [opt_show_bin], 1
-        jz .print_msg
         call stos_bin_digits
         
         .print_msg:
@@ -432,8 +427,12 @@ stos_bin_digits:
         ret
 
 ; options
-opt_show_hex:   db 1
-opt_show_bin:   db 1
+num_options     equ 3
+options:        db "B"
+opt_bin_only:   db 0
+                db "H"
+opt_hex_only:   db 0
+                db "C"
 opt_compact:    db 0
 
 ; messages
