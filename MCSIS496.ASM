@@ -47,10 +47,7 @@ main:
         jmp .invalid_args
         .set_option:
         mov byte [options+bx-1], 1
-        mov al, [si]            ; peek for space
-        cmp al, 20h
-        jbe .process_options    ; try reading another option
-        jmp .invalid_args
+        jmp .process_options
 
         .help_and_exit:
         mov dx, msg_help
@@ -171,26 +168,17 @@ main:
         jae .invalid_args       ; bit index >= nr bits
 
         sub cl, ch              ; cl = max nr of bin digits
-
-        cmp [si], byte 20h      ; must specify at least 1 bit
-        jbe .invalid_args
-
         xor ah, ah              ; count bin digits in ah
         xor edi, edi            ; use edi for the bit mask
         xor edx, edx            ; use edx for the bit pattern
         .next_bin_digit:
         mov al, [si]
-        cmp al, 20h
-        jbe .apply_bit_set
-        cmp al, "0"
-        jb .invalid_args
-        cmp al, "1"
-        ja .invalid_args
-        sub al, "0"
-        shl edi, 1
-        inc edi
-        shl edx, 1
-        or dl, al
+        xor al, "0"             ; reduce to 1 bit (if "0" / "1")
+        shr al, 1               ; shift bit into carry
+        jnz .apply_bit_set      ; if z is not set, al was not "0" or "1"
+        rcl edx, 1              ; shift carry into bit pattern
+        stc                     ; set carry
+        rcl edi, 1              ; shift 1 into bit mask
         inc ah
         cmp ah, cl
         ja .invalid_args        ; too many digits
@@ -198,6 +186,8 @@ main:
         jmp .next_bin_digit
 
         .apply_bit_set:
+        test ah, ah
+        jz .invalid_args        ; must specify at least 1 bit
         mov cl, ch
         shl edi, cl
         shl edx, cl
@@ -259,12 +249,16 @@ main:
 ; skip_spaces
 ; Skips spaces at register si. Returns at first `\r`. Otherwise skips all chars <= 20h.
 ; Returns last read char in al. ZF is set when the end of line is reached.
+; Requires at least 1 whitespace char, otherwise jumps to .invalid_args.
 skip_spaces:
+        cmp byte [si], 20h
+        ja main.invalid_args
+        .more_spaces:
         lodsb
         cmp al, `\r`
         je .done
         cmp al, 20h
-        jbe skip_spaces
+        jbe .more_spaces
         .done:
         ret
 
