@@ -70,7 +70,7 @@ main:
         shl cx, 1
         .size_byte:
         
-        .get_reg_nr:            ; reg nr is put into dx
+        .get_reg_nr:            ; dx = register number
         push cx
         mov cx, 2
         xor dx, dx
@@ -105,12 +105,14 @@ main:
         inc si
 
         .set_sis496_reg_nr:
-        push dx
         mov eax, config_addr
         mov al, dl
-        and al, 1111_1100b
+        and dl, 0000_0011b      ; lowest two bits for data_port
+        or dx, data_port        ; dx = data port + two bit offset
+        push dx
+        and al, 1111_1100b      ; other bits for config_addr
         mov dx, addr_port
-        out dx, eax
+        out dx, eax             ; set config_addr
         pop dx
 
         call get_reg_value
@@ -124,7 +126,6 @@ main:
         mov dx, ax
         mov ah, 09h
         int 21h
-        pop dx
 
         test byte [opt_compact], 1
         jnz .process_bit_sets
@@ -138,7 +139,6 @@ main:
         cmp al, "9"
         ja .get_reg_size        ; > "9" could mean another register
 
-        push dx
         .next_bit_set:
         push cx                 ; save register size in bytes
         xor ch, ch              ; use ch for the bit index
@@ -267,24 +267,19 @@ skip_spaces:
 ; Note: addr_port must be configured porior to calling this.
 ; args:
 ; cl - The size of the register in bytes.
-; dx - The register number.
+; dx - The data port. (offset by lowest 2 bits of reg nr)
 get_reg_value:
-        push dx
-        and dl, 0000_0011b
-        or dx, data_port
         cmp cl, 2
         jb .size_byte
         je .size_word
         .size_dword:
         in eax, dx
-        jmp .done
+        ret
         .size_word:
         in ax, dx
-        jmp .done
+        ret
         .size_byte:
         in al, dx
-        .done:
-        pop dx
         ret
 
 ; set_reg_value
@@ -293,24 +288,19 @@ get_reg_value:
 ; args:
 ; eax/ax/al - The value to set on the register.
 ; cl - The size of the register in bytes.
-; dx - The register number.
+; dx - The data port. (offset by lowest 2 bits of reg nr)
 set_reg_value:
-        push dx
-        and dl, 0000_0011b
-        or dx, data_port
         cmp cl, 2
         jb .size_byte
         je .size_word
         .size_dword:
         out dx, eax
-        jmp .done
+        ret
         .size_word:
         out dx, ax
-        jmp .done
+        ret
         .size_byte:
         out dx, al
-        .done:
-        pop dx
         ret
 
 ; show_reg_value
