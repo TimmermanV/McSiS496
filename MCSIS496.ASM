@@ -102,7 +102,7 @@ main:
         and al, 1101_1111b
         cmp al, "H"
         je .set_sis496_reg_nr
-        dec                     ; decrement si if it wasn't "H"
+        dec si                  ; decrement si if it wasn't "H"
 
         .set_sis496_reg_nr:
         mov eax, config_addr
@@ -424,13 +424,16 @@ msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", "$"
 msg_no_sis496:  db `\r\n`, "Failed to detect SiS 496/497!", "$"
 msg_inval_args: db `\r\n`, "Invalid arguments!" ; continued below
 msg_help:       db `\r\n\r\n`, "Usage:", `\r\n`
-                db "mcsis496 register [bit_changes...] [register [bit_changes...]]...", `\r\n`
+                db "mcsis496 [option]... register [bit_changes...] [register [bit_changes...]]...", `\r\n`
+                db "option = -b show binary representation only", `\r\n`
+                db "         -h show hexadecimal representation only", `\r\n`
+                db "         -c compact output, shows final value only", `\r\n`
                 db "register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']", `\r\n`
                 db "bit_changes = index of lowest bit (decimal) + '=' + binary digits", `\r\n\r\n`
                 db "Examples:", `\r\n`
-                db "mcsis496 d00h", `\r\n`
+                db "mcsis496 -h d00h", `\r\n`
                 db "mcsis496 b40h 0=10 5=1 6=1", `\r\n`
-                db "mcsis496 b40h 2=010 b81h 2=010", "$"
+                db "mcsis496 -c -b b40h 2=010 b81h 2=010", "$"
 end_of_line:    db `\r\n`, "$"
 msg_reg_nr:     db `\r\n`               ; continued below
 cpt_msg_reg_nr: db `\r\n`, "Register "  ; continued below
