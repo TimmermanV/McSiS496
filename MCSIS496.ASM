@@ -172,7 +172,7 @@ main:
         xor edi, edi            ; use edi for the bit mask
         xor edx, edx            ; use edx for the bit pattern
         .next_bin_digit:
-        mov al, [si]
+        lodsb
         xor al, "0"             ; reduce to 1 bit (if "0" / "1")
         shr al, 1               ; shift bit into carry
         jnz .apply_bit_set      ; if z is not set, al was not "0" or "1"
@@ -182,7 +182,6 @@ main:
         inc ah
         cmp ah, cl
         ja .invalid_args        ; too many digits
-        inc si
         jmp .next_bin_digit
 
         .apply_bit_set:
@@ -195,14 +194,15 @@ main:
         and ebx, edi
         or ebx, edx
 
+        dec si
         call skip_spaces
-        jz .set_new_reg_value
+        jz .show_set_value
         cmp al, "9"
-        ja .set_new_reg_value   ; > "9" could mean another register
+        ja .show_set_value      ; > "9" could mean another register
         pop cx                  ; restore register size in bytes
         jmp .next_bit_set
 
-        .set_new_reg_value:
+        .show_set_value:
         pop cx                  ; restore register size in bytes
         pop dx                  ; restore register number
         push ax                 ; remember the last read char
