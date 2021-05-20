@@ -54,9 +54,9 @@ main:
         mov al, 0               ; zero return code for success
         jmp .print_and_exit
 
-        .get_reg_size:          ; reg size is put into cx
+        .get_reg_size:
         and al, 1101_1111b      ; force uppercase
-        mov cx, 1               ; default reg size
+        mov cl, 1               ; default reg size
         cmp al, "D"
         je .size_dword
         cmp al, "W"
@@ -65,13 +65,13 @@ main:
         je .size_byte
         jmp .invalid_args
         .size_dword:
-        shl cx, 1
+        shl cl, 1
         .size_word:
-        shl cx, 1
+        shl cl, 1
         .size_byte:
+        mov [reg_size], cl      ; store register size in global
         
         .get_reg_nr:            ; dx = register number
-        push cx
         mov cx, 2
         xor dx, dx
         mov di, reg_nr_digits
@@ -95,7 +95,6 @@ main:
         shl dx, 4
         or dl, al
         loop .process_nibble
-        pop cx                  ; restore cx to contain reg size
 
         ;.skip_optional_h:
         lodsb
@@ -113,7 +112,7 @@ main:
         and al, 1111_1100b      ; other bits for config_addr
         mov dx, addr_port
         out dx, eax             ; set config_addr
-        pop dx
+        pop word [reg_data_port]; store register data port in global
 
         call get_reg_value
         mov ebx, eax
@@ -140,8 +139,7 @@ main:
         ja .get_reg_size        ; > "9" could mean another register
 
         .next_bit_set:
-        push cx                 ; save register size in bytes
-        xor ch, ch              ; use ch for the bit index
+        mov cx, [reg_size]
         jmp .process_dec_digit  ; first digit is already loaded by skip_spaces
         .load_dec_digit:
         lodsb
@@ -199,12 +197,9 @@ main:
         jz .show_set_value
         cmp al, "9"
         ja .show_set_value      ; > "9" could mean another register
-        pop cx                  ; restore register size in bytes
         jmp .next_bit_set
 
         .show_set_value:
-        pop cx                  ; restore register size in bytes
-        pop dx                  ; restore register number
         push ax                 ; remember the last read char
         pushf                   ; remember why we stopped reading bit sets
 
@@ -265,11 +260,10 @@ skip_spaces:
 ; get_reg_value
 ; Returns the value of a SiS496 register in eax/ax/al.
 ; Note: addr_port must be configured porior to calling this.
-; args:
-; cl - The size of the register in bytes.
-; dx - The data port. (offset by lowest 2 bits of reg nr)
+; Register size and data port are read from global vars.
 get_reg_value:
-        cmp cl, 2
+        mov dx, [reg_data_port]
+        cmp byte [reg_size], 2
         jb .size_byte
         je .size_word
         .size_dword:
@@ -285,12 +279,12 @@ get_reg_value:
 ; set_reg_value
 ; Sets the value of a SiS496 register to eax.
 ; Note: addr_port must be configured porior to calling this.
+; Register size and data port are read from global vars.
 ; args:
 ; eax/ax/al - The value to set on the register.
-; cl - The size of the register in bytes.
-; dx - The data port. (offset by lowest 2 bits of reg nr)
 set_reg_value:
-        cmp cl, 2
+        mov dx, [reg_data_port]
+        cmp byte [reg_size], 2
         jb .size_byte
         je .size_word
         .size_dword:
@@ -308,9 +302,7 @@ set_reg_value:
 ; The line is prefixed with a message header.
 ; args:
 ; ebx - The value to be shown as hex and bin digits
-; cx - The number of bytes to process (4=ebx,2=bx,1=bl)
 show_reg_value:
-        push dx
         mov di, buffer
 
         test byte [opt_bin_only], 1
@@ -337,19 +329,17 @@ show_reg_value:
         mov dx, ax
         mov ah, 09h
         int 21h
-        pop dx
         ret
 
 ; stos_hex_digits
 ; Stores a string of hexadecimal digits based on the value ebx.
 ; args:
 ; ebx - The value to be converted to hexadecimal digits
-; cx - The number of bytes to process (4=ebx,2=bx,1=bl)
 ; di - destination for the digit string
 stos_hex_digits:
         push ebx
-        push cx
 
+        mov cl, [reg_size]
         shl cl, 3
         ror ebx, cl             ; ror bits that will be processed
         shr cl, 2               ; cl = nr of hexdec digits
@@ -366,7 +356,6 @@ stos_hex_digits:
         .store_digit:
         stosb
         loop .get_next_digit
-        pop cx
         pop ebx
         ret
 
@@ -374,12 +363,11 @@ stos_hex_digits:
 ; Stores a string of binary digits based on the value ebx.
 ; args:
 ; ebx - The value to be converted to binary digits
-; cx - The number of bytes to process (4=ebx,2=bx,1=bl)
 ; di - destination for the digit string
 stos_bin_digits:
         push ebx
-        push cx
-
+        
+        mov cl, [reg_size]
         shl cl, 3
         ror ebx, cl             ; ror bits that will be processed
 
@@ -406,7 +394,6 @@ stos_bin_digits:
         adc al, "0"
         stosb
         loop .add_byte_sep
-        pop cx
         pop ebx        
         ret
 
@@ -418,6 +405,10 @@ opt_bin_only:   db 0
 opt_hex_only:   db 0
                 db "C"
 opt_compact:    db 0
+
+; globals
+reg_size:       dw 0    ; size of the current register in bytes (1/2/4) as word
+reg_data_port:  dw 0    ; data_port offset with the lowest two bits of the register nr
 
 ; messages
 msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", "$"
