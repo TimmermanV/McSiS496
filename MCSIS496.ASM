@@ -98,11 +98,11 @@ main:
         pop cx                  ; restore cx to contain reg size
 
         ;.skip_optional_h:
-        mov al, [si]            ; peek for value "H"
+        lodsb
         and al, 1101_1111b
         cmp al, "H"
-        jne .set_sis496_reg_nr
-        inc si
+        je .set_sis496_reg_nr
+        dec                     ; decrement si if it wasn't "H"
 
         .set_sis496_reg_nr:
         mov eax, config_addr
