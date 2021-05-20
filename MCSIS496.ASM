@@ -35,7 +35,6 @@ main:
         jz .help_and_exit
         cmp al, "-"
         jne .get_reg_size
-
         lodsw
         and ah, 1101_1111b      ; force uppercase
         mov bx, num_options*2
@@ -199,9 +198,7 @@ main:
         jmp .next_bit_set
 
         .show_set_value:
-        push ax                 ; remember the last read char
         pushf                   ; remember why we stopped reading bit sets
-
         test byte [opt_compact], 1
         jnz .set_reg_value
         mov [reg_val_type], dword "Set "
@@ -219,7 +216,6 @@ main:
         popf                    ; restore why we stopped reading bit sets
         jz .success_exit        ; if it was the end of args, exit here
         mov [reg_val_type], dword "Cur "
-        pop ax                  ; restore the last read char
         jmp .get_reg_size       ; try reading another register size+number
 
         .success_exit:
