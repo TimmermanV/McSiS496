@@ -36,11 +36,11 @@ main:
         cmp al, "-"
         jne .get_reg_size
 
-        lodsb
-        and al, 1101_1111b      ; force uppercase
+        lodsw
+        and ah, 1101_1111b      ; force uppercase
         mov bx, num_options*2
         .find_option:
-        cmp al, [options+bx-2]
+        cmp ah, [options+bx-2]
         je .set_option
         sub bx, 2
         jnz .find_option
@@ -55,6 +55,7 @@ main:
         jmp .print_and_exit
 
         .get_reg_size:
+        lodsb
         and al, 1101_1111b      ; force uppercase
         mov cl, 1               ; default reg size
         cmp al, "D"
@@ -140,10 +141,8 @@ main:
 
         .next_bit_set:
         mov cx, [reg_size]
-        jmp .process_dec_digit  ; first digit is already loaded by skip_spaces
         .load_dec_digit:
         lodsb
-        .process_dec_digit:
         cmp al, "="
         je .check_bit_index
         cmp al, "0"
@@ -243,7 +242,8 @@ main:
 
 ; skip_spaces
 ; Skips spaces at register si. Returns at first `\r`. Otherwise skips all chars <= 20h.
-; Returns last read char in al. ZF is set when the end of line is reached.
+; Returns first non-space char in al. SI is decremented so it points to this char.
+; ZF is set when the end of line is reached.
 ; Requires at least 1 whitespace char, otherwise jumps to .invalid_args.
 skip_spaces:
         cmp byte [si], 20h
@@ -255,6 +255,9 @@ skip_spaces:
         cmp al, 20h
         jbe .more_spaces
         .done:
+        pushf
+        dec si
+        popf
         ret
 
 ; get_reg_value
@@ -339,7 +342,7 @@ show_reg_value:
 stos_hex_digits:
         push ebx
 
-        mov cl, [reg_size]
+        mov cx, [reg_size]
         shl cl, 3
         ror ebx, cl             ; ror bits that will be processed
         shr cl, 2               ; cl = nr of hexdec digits
@@ -367,7 +370,7 @@ stos_hex_digits:
 stos_bin_digits:
         push ebx
         
-        mov cl, [reg_size]
+        mov cx, [reg_size]
         shl cl, 3
         ror ebx, cl             ; ror bits that will be processed
 
