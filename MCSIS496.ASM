@@ -128,6 +128,7 @@ main:
 
         test byte [opt_compact], 1
         jnz .process_bit_sets
+        mov eax, "Cur "
         call show_reg_value
 
         .process_bit_sets:
@@ -201,7 +202,7 @@ main:
         pushf                   ; remember why we stopped reading bit sets
         test byte [opt_compact], 1
         jnz .set_reg_value
-        mov [reg_val_type], dword "Set "
+        mov eax, "Set "
         call show_reg_value
 
         .set_reg_value:
@@ -210,12 +211,11 @@ main:
         call get_reg_value
         mov ebx, eax
 
-        mov [reg_val_type], dword "New "
+        mov eax, "New "
         call show_reg_value
 
         popf                    ; restore why we stopped reading bit sets
         jz .success_exit        ; if it was the end of args, exit here
-        mov [reg_val_type], dword "Cur "
         jmp .get_reg_size       ; try reading another register size+number
 
         .success_exit:
@@ -300,8 +300,12 @@ set_reg_value:
 ; Shows both the hexadecimal and binary representation of the value in ebx.
 ; The line is prefixed with a message header.
 ; args:
+; eax - The first word (also literally) of the message header.
 ; ebx - The value to be shown as hex and bin digits
 show_reg_value:
+        mov di, reg_val_type
+        stosd                   ; Store the word in the msg header
+
         mov di, buffer
 
         test byte [opt_bin_only], 1
