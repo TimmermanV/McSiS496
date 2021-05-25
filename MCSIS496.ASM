@@ -141,7 +141,7 @@ main:
         .load_dec_digit:
         lodsb
         cmp al, "="
-        je .check_bit_index
+        je .read_bin_digits
         cmp al, "0"
         jb .invalid_args
         cmp al, "9"
@@ -154,7 +154,7 @@ main:
         jae .invalid_args       ; bit index too high
         jmp .load_dec_digit
 
-        .check_bit_index:       ; check if index is out of range
+        .read_bin_digits:
         push cx                 ; save bit index
         neg cx
         add cx, dx              ; cl = max nr of bin digits
