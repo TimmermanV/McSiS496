@@ -113,12 +113,9 @@ main:
         mov dx, addr_port
         out dx, eax             ; set config_addr
         pop word [reg_data_port]; store register data port in global
-
         call get_reg_value
-        mov ebx, eax
 
         ;.show_msg_reg_nr:
-        push dx
         mov ax, cpt_msg_reg_nr - msg_reg_nr
         mul byte [opt_compact]
         add ax, msg_reg_nr
@@ -126,21 +123,19 @@ main:
         mov ah, 09h
         int 21h
 
-        test byte [opt_compact], 1
-        jnz .process_bit_sets
-        mov eax, "Cur "
-        call show_reg_value
-
-        .process_bit_sets:
-        call skip_spaces        
-        jz .success_exit        ; end of arguments: jump to exit
-        cmp al, "0"
-        jb .invalid_args        ; < "0" is invalid at this point
-        cmp al, "9"
-        ja .get_reg_size        ; > "9" could mean another register
-
+        mov ebx, [reg_value]
+        xor edi, edi            ; edi will remain 0 if no bit_set is specified
         .next_bit_set:
-        mov cx, [reg_size]
+        call skip_spaces        
+        jz .show_cur_and_set_val
+        cmp al, "0"
+        jb .show_cur_and_set_val
+        cmp al, "9"
+        ja .show_cur_and_set_val
+        xor ah, ah
+        xor cx, cx
+        inc si
+        jmp .process_dec_digit
         .load_dec_digit:
         lodsb
         cmp al, "="
@@ -149,17 +144,17 @@ main:
         jb .invalid_args
         cmp al, "9"
         ja .invalid_args
-        sub al, "0"
-        mov dl, ch              ; dl = ch
-        shl ch, 3               ; ch = ch * 8 + dl * 2
-        shl dl, 1
-        add ch, dl
-        add ch, al              ; ch = bit index
-        cmp ch, 31              ; max index in any case is 31
+        .process_dec_digit:
+        sub ax, "0"
+        imul cx, 10
+        add cx, ax              ; cx = bit index
+        cmp cx, 31              ; max index in any case is 31
         ja .invalid_args
         jmp .load_dec_digit
 
         .check_bit_index:       ; check if index is out of range
+        mov ch, cl
+        mov cl, [reg_size]
         shl cl, 3               ; register size from bytes to bits
         cmp ch, cl
         jae .invalid_args       ; bit index >= nr bits
@@ -185,35 +180,37 @@ main:
         test ah, ah
         jz .invalid_args        ; must specify at least 1 bit
         mov cl, ch
-        shl edi, cl
-        shl edx, cl
+        shl edi, cl             ; shift bit mask with bit index
+        shl edx, cl             ; shift bit pattern with bit index
         not edi
         and ebx, edi
         or ebx, edx
 
         dec si
-        call skip_spaces
-        jz .show_set_value
-        cmp al, "9"
-        ja .show_set_value      ; > "9" could mean another register
         jmp .next_bit_set
 
-        .show_set_value:
+        .show_cur_and_set_val:
         pushf                   ; remember why we stopped reading bit sets
-        test byte [opt_compact], 1
-        jnz .set_reg_value
+        push ebx                ; remember the modified register value
+        ;test byte [opt_compact], 1
+        ;jnz .set_reg_value
+        
+        mov eax, "Cur "
+        call show_reg_value     ; show current value
+        pop dword [reg_value]   ; write modified value to [reg_value]
+        test edi, edi
+        jz .finished_one_reg
         mov eax, "Set "
-        call show_reg_value
+        call show_reg_value     ; show set value
 
         .set_reg_value:
-        mov eax, ebx
         call set_reg_value
         call get_reg_value
-        mov ebx, eax
 
         mov eax, "New "
-        call show_reg_value
+        call show_reg_value     ; show new value
 
+        .finished_one_reg:
         popf                    ; restore why we stopped reading bit sets
         jz .success_exit        ; if it was the end of args, exit here
         jmp .get_reg_size       ; try reading another register size+number
@@ -257,43 +254,47 @@ skip_spaces:
         ret
 
 ; get_reg_value
-; Returns the value of a SiS496 register in eax/ax/al.
+; Sets [reg_value] to the value of a SiS496 register.
 ; Note: addr_port must be configured porior to calling this.
 ; Register size and data port are read from global vars.
 get_reg_value:
+        mov di, reg_value
         mov dx, [reg_data_port]
         cmp byte [reg_size], 2
         jb .size_byte
         je .size_word
         .size_dword:
-        in eax, dx
+        insd
         ret
         .size_word:
-        in ax, dx
+        insw
         ret
         .size_byte:
-        in al, dx
+        insb
         ret
 
 ; set_reg_value
-; Sets the value of a SiS496 register to eax.
+; Sets the value of a SiS496 register to [reg_value].
 ; Note: addr_port must be configured porior to calling this.
-; Register size and data port are read from global vars.
-; args:
-; eax/ax/al - The value to set on the register.
+; Register size, value and data port are read from global vars.
 set_reg_value:
+        push si
+        mov si, reg_value
         mov dx, [reg_data_port]
         cmp byte [reg_size], 2
         jb .size_byte
         je .size_word
         .size_dword:
-        out dx, eax
+        outsd
+        pop si
         ret
         .size_word:
-        out dx, ax
+        outsw
+        pop si
         ret
         .size_byte:
-        out dx, al
+        outsb
+        pop si
         ret
 
 ; show_reg_value
@@ -303,10 +304,12 @@ set_reg_value:
 ; eax - The first word (also literally) of the message header.
 ; ebx - The value to be shown as hex and bin digits
 show_reg_value:
+        push di
         mov di, reg_val_type
         stosd                   ; Store the word in the msg header
 
         mov di, buffer
+        mov ebx, [reg_value]
 
         test byte [opt_bin_only], 1
         jnz .stos_bin
@@ -332,6 +335,8 @@ show_reg_value:
         mov dx, ax
         mov ah, 09h
         int 21h
+
+        pop di
         ret
 
 ; stos_hex_digits
@@ -412,6 +417,7 @@ opt_compact:    db 0
 ; globals
 reg_size:       dw 0    ; size of the current register in bytes (1/2/4) as word
 reg_data_port:  dw 0    ; data_port offset with the lowest two bits of the register nr
+reg_value:      dd 0    ; current value of the register
 
 ; messages
 msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", "$"
