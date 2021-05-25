@@ -134,6 +134,8 @@ main:
         ja .show_cur_and_set_val
         xor ah, ah
         xor cx, cx
+        mov dx, [reg_size]
+        shl dx, 3               ; register size from bytes to bits
         inc si
         jmp .process_dec_digit
         .load_dec_digit:
@@ -148,18 +150,14 @@ main:
         sub ax, "0"
         imul cx, 10
         add cx, ax              ; cx = bit index
-        cmp cx, 31              ; max index in any case is 31
-        ja .invalid_args
+        cmp cx, dx
+        jae .invalid_args       ; bit index too high
         jmp .load_dec_digit
 
         .check_bit_index:       ; check if index is out of range
-        mov ch, cl
-        mov cl, [reg_size]
-        shl cl, 3               ; register size from bytes to bits
-        cmp ch, cl
-        jae .invalid_args       ; bit index >= nr bits
-
-        sub cl, ch              ; cl = max nr of bin digits
+        push cx                 ; save bit index
+        neg cx
+        add cx, dx              ; cl = max nr of bin digits
         xor ah, ah              ; count bin digits in ah
         xor edi, edi            ; use edi for the bit mask
         xor edx, edx            ; use edx for the bit pattern
@@ -179,7 +177,7 @@ main:
         .apply_bit_set:
         test ah, ah
         jz .invalid_args        ; must specify at least 1 bit
-        mov cl, ch
+        pop cx                  ; restore bit index
         shl edi, cl             ; shift bit mask with bit index
         shl edx, cl             ; shift bit pattern with bit index
         not edi
