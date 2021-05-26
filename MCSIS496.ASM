@@ -141,7 +141,7 @@ main:
         .load_dec_digit:
         lodsb
         cmp al, "="
-        je .read_bin_digits
+        je .find_end_bits
         cmp al, "0"
         jb .invalid_args
         cmp al, "9"
@@ -154,40 +154,30 @@ main:
         jae .invalid_args       ; bit index too high
         jmp .load_dec_digit
 
-        .read_bin_digits:       ; first find the end, then process backwards
-        push dx                 ; save reg size in bits
-        mov dx, .read_bin_digit ; set dx to skip bin digits
-        mov di, .fwd_end_of_bits
-        ror ebx, cl             ; ensure that bits are inserted at the requested index
-
-        .read_bin_digit:
+        .find_end_bits:         ; first find the end, then process backwards
         lodsb
         xor al, "0"             ; reduce to 1 bit (if "0" / "1")
-        shr al, 1               ; shift bit into carry
-        jnz .jmp_to_end
-        jmp dx
-        .jmp_to_end:
-        jmp di
-
-        .fwd_end_of_bits:
-        mov dx, .process_bit
-        mov di, .bwd_end_of_bits
+        shr al, 1               ; discard lowest bit
+        jz .find_end_bits
+        
         std                     ; start processing backwards
+        ror ebx, cl             ; ensure that bits are inserted at the requested index        
         dec si
         push si                 ; save si so we can continue afterwards
         dec si
-        jmp .read_bin_digit
-
         .process_bit:
+        lodsb
+        xor al, "0"             ; reduce to 1 bit (if "0" / "1")
+        shr al, 1               ; shift bit into carry
+        jnz .bwd_end_of_bits
         rcr ebx, 1              ; replace bit by new value
         inc cl                  ; keep track of index so we can reverse in the end
-        jmp .read_bin_digit
+        jmp .process_bit
 
         .bwd_end_of_bits:
         cld                     ; restore direction forwards
         rol ebx, cl             ; restore original ebx rotation
         pop si                  ; restore si to continue processing args
-        pop dx                  ; restore reg size in bits
         cmp cl, dl
         ja .invalid_args        ; too many bits written
         jmp .next_bit_set
