@@ -4,16 +4,19 @@ I will show the current contents of the requested register and will attempt to m
 
 Usage:
 ```
-mcsis496 register [bit_changes...] [register [bit_changes...]]...
+mcsis496 [option]... register [bit_changes...] [register [bit_changes...]]...
+option = -b show binary representation only
+         -h show hexadecimal representation only
+         -c compact output, shows final value only
 register = size 'b'/'w'/'d' (for 8/16/32-bit) + hexdec regnr [+ 'h']
 bit_changes = index of lowest bit (decimal) + '=' + binary digits
 ```
 
 Examples:
 ```
-mcsis496 d00h
-mcsis496 b40h 0=10
-mcsis496 b40h 2=010 b81h 2=010
+mcsis496 -h d00h
+mcsis496 b40h 0=10 5=1 6=1
+mcsis496 -c -b b40h 2=010 b81h 2=010
 ```
 
 If you don't specify any bit changes, the program will just show the current value of the register. If you do specify any bit changes, the program will read and display the current value, apply your requested changes, show the result and write the new value to the register. Finally it will read and display the (new) value of the register.
@@ -21,7 +24,7 @@ If you don't specify any bit changes, the program will just show the current val
 Example output:
 ```
 C:\>mcsis496 dc8 12=1010 8=1110
-Manual configuration tool for SiS 496/497 v1.01
+Manual configuration tool for SiS 496/497 v1.1
 
 Register C8h
 Cur value: 00FF0000h  0000_0000 1111_1111 0000_0000 0000_0000
