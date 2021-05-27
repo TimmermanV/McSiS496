@@ -1,5 +1,6 @@
 ; Manual configuration tool for SiS 496/497
 ; Author: TimmermanV
+; Assembler: NASM
  
 config_addr equ 80002800h
 addr_port equ 0cf8h
@@ -124,7 +125,7 @@ main:
         int 21h
 
         mov ebx, [reg_value]
-        xor edi, edi            ; edi will remain 0 if no bit_set is specified
+        xor cx, cx              ; cx will remain 0 if no bit_set is specified
         .next_bit_set:
         call skip_spaces        
         jz .show_cur_and_set_val
@@ -184,26 +185,35 @@ main:
 
         .show_cur_and_set_val:
         pushf                   ; remember why we stopped reading bit sets
-        push ebx                ; remember the modified register value
-        ;test byte [opt_compact], 1
-        ;jnz .set_reg_value
+        push ebx
+        mov ebx, [reg_value]    ; ebx = original register value
+        pop dword [reg_value]   ; [reg_value] = modified register value
+
+        test byte [opt_compact], 1
+        jnz .compact_output
         
         mov eax, "Cur "
-        call show_reg_value     ; show current value
-        pop dword [reg_value]   ; write modified value to [reg_value]
-        ;test edi, edi
-        ;jz .finished_one_reg
-        mov eax, "Set "
-        call show_reg_value     ; show set value
+        test cx, cx
+        jz .final_show_value
 
-        .set_reg_value:
+        call show_reg_value     ; show current value
+        mov eax, "Set "
+        mov ebx, [reg_value]
+        call show_reg_value     ; show set value
+        jmp .set_and_get_reg_value
+
+        .compact_output:
+        test cx, cx
+        jz .final_show_value
+
+        .set_and_get_reg_value:
         call set_reg_value
         call get_reg_value
-
         mov eax, "New "
-        call show_reg_value     ; show new value
+        mov ebx, [reg_value]
 
-        .finished_one_reg:
+        .final_show_value:
+        call show_reg_value     ; show new value
         popf                    ; restore why we stopped reading bit sets
         jz .success_exit        ; if it was the end of args, exit here
         jmp .get_reg_size       ; try reading another register size+number
@@ -302,7 +312,6 @@ show_reg_value:
         stosd                   ; Store the word in the msg header
 
         mov di, buffer
-        mov ebx, [reg_value]
 
         test byte [opt_bin_only], 1
         jnz .stos_bin
