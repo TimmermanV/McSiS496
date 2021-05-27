@@ -207,7 +207,7 @@ main:
         jz .final_show_value
 
         .set_and_get_reg_value:
-        mov eax, ebx
+        mov eax, edx
         call set_reg_value
         call get_reg_value
         mov ebx, eax
