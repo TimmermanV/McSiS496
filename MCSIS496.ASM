@@ -420,7 +420,7 @@ reg_size:       dw 0    ; size of the current register in bytes (1/2/4) as word
 reg_data_port:  dw 0    ; data_port offset with the lowest two bits of the register nr
 
 ; messages
-msg_title:      db "Manual configuration tool for SiS 496/497 v1.01", "$"
+msg_title:      db "Manual configuration tool for SiS 496/497 v1.1", "$"
 msg_no_sis496:  db `\r\n`, "Failed to detect SiS 496/497!", "$"
 msg_inval_args: db `\r\n`, "Invalid arguments!" ; continued below
 msg_help:       db `\r\n\r\n`, "Usage:", `\r\n`
