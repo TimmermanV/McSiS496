@@ -1,6 +1,6 @@
 # McSiS496
 McSiS496 is a simple command line tool for DOS that allows manual configuration of bits in configuration registers in the PCI configuration of the SiS85C496/497.
-I will show the current contents of the requested register and will attempt to modify any requested bits. To know which bits do what, track down a copy of the technical reference / specification "SiS 85C496/497 Preliminary Rev 3.0 July 1995", and read part IV chapter 3 "PCI Configuration Space Registers".
+It will show the current contents of the requested register and will attempt to modify any requested bits. To know which bits do what, track down a copy of the technical reference / specification "SiS 85C496/497 Preliminary Rev 3.0 July 1995", and read part IV chapter 3 "PCI Configuration Space Registers".
 
 Usage:
 ```
